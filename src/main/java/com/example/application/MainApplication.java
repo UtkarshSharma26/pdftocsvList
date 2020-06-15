@@ -10,14 +10,12 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.*;
-import java.util.stream.Collectors;
 
 
 public class MainApplication {
 
     static String currentRelativePath = Paths.get("").toAbsolutePath().toString();
     public static File folder = new File(currentRelativePath);
-    static String outputCsvName = currentRelativePath + "/dataCsv.csv";
     static String errorFiles = currentRelativePath + "/errorFiles.txt";
     static String keywordsFilePath = currentRelativePath + "/keywords.txt";
     static String fileListPath = currentRelativePath + "/FileList.csv";
@@ -31,14 +29,12 @@ public class MainApplication {
         }
         List<String> pdfPathList = new ArrayList<>();
         listFilesForFolder(folder, pdfPathList);
-        List<Map<String, String>> detailsList = new ArrayList<>();
         List<String> finalKeywords = keywords;
         deleteFile(fileListPath);
         deleteFile(errorFiles);
         Map<String, String> headers = getHeaders(finalKeywords);
         dataMapToCsv(headers);
         pdfPathList.forEach(pdfPath -> {
-            System.out.println(pdfPath);
             PDDocument document = null;
             try {
                 document = PDDocument.load(new File(pdfPath));
@@ -46,6 +42,8 @@ public class MainApplication {
                 detailsMap.put("File Path", pdfPath);
                 detailsMap.put("File Name", pdfPath.substring(pdfPath.lastIndexOf('/') + 1));
                 detailsMap.put("No. of Pages", String.valueOf(document.getNumberOfPages()));
+                detailsMap.put("File Size", String.valueOf(new File(pdfPath).length()));
+                detailsMap.put("Status", "Active");
                 finalKeywords.forEach(keyword -> detailsMap.put(keyword, ""));
                 document.getClass();
                 if (!document.isEncrypted()) {
@@ -58,13 +56,12 @@ public class MainApplication {
                     }
                 }
                 dataMapToCsv(detailsMap);
-                detailsList.add(detailsMap);
                 document.close();
             } catch (IOException e) {
+                dataMapToCsv(errorMap(pdfPath, finalKeywords));
                 writeTxtFile(pdfPath);
             }
         });
-        outputCsv(detailsList);
     }
 
     private static Map<String, String> getHeaders(List<String> finalKeywords) {
@@ -72,6 +69,8 @@ public class MainApplication {
         headers.put("File Path", "File Path");
         headers.put("File Name", "File Name");
         headers.put("No. of Pages", "No. of Pages");
+        headers.put("File Size", "File Size");
+        headers.put("Status", "Status");
         finalKeywords.forEach(keyword -> headers.put(keyword, keyword));
         return headers;
     }
@@ -106,29 +105,6 @@ public class MainApplication {
         }
     }
 
-    private static void outputCsv(List<Map<String, String>> detailsList) {
-        List<String> headers = detailsList.stream().flatMap(map -> map.keySet().stream()).distinct().collect(Collectors.toList());
-        String path = outputCsvName;
-        deleteFile(outputCsvName);
-        try (FileWriter writer = new FileWriter(path, false)) {
-            for (String string : headers) {
-                writer.write(string);
-                writer.write(",");
-            }
-            writer.write("\r\n");
-
-            for (Map<String, String> lmap : detailsList) {
-                for (Map.Entry<String, String> string2 : lmap.entrySet()) {
-                    writer.write(string2.getValue());
-                    writer.write(",");
-                }
-                writer.write("\r\n");
-            }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
     private static void deleteFile(String path) {
         File csvFile = new File(path);
         if (csvFile.exists()) {
@@ -143,5 +119,16 @@ public class MainApplication {
         } catch (IOException ioException) {
             ioException.printStackTrace();
         }
+    }
+
+    private static Map<String, String> errorMap(String pdfPath, List<String> finalKeywords) {
+        Map<String, String> detailsMap = new HashMap<>();
+        detailsMap.put("File Path", pdfPath);
+        detailsMap.put("File Name", pdfPath.substring(pdfPath.lastIndexOf('/') + 1));
+        detailsMap.put("No. of Pages", "");
+        detailsMap.put("Status", "Error");
+        detailsMap.put("File Size", String.valueOf(new File(pdfPath).length()));
+        finalKeywords.forEach(keyword -> detailsMap.put(keyword, ""));
+        return detailsMap;
     }
 }
