@@ -9,10 +9,7 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 import java.util.stream.Collectors;
 
 
@@ -21,10 +18,12 @@ public class MainApplication {
     static String currentRelativePath = Paths.get("").toAbsolutePath().toString();
     public static File folder = new File(currentRelativePath);
     static String outputCsvName = currentRelativePath + "/dataCsv.csv";
+    static String errorFiles = currentRelativePath + "/errorFiles.txt";
     static String keywordsFilePath = currentRelativePath + "/keywords.txt";
+    static String fileListPath = currentRelativePath + "/FileList.csv";
 
     public static void main(String[] args) {
-        List<String> keywords = null;
+        List<String> keywords;
         try {
             keywords = Files.readAllLines(Paths.get(keywordsFilePath));
         } catch (IOException e) {
@@ -34,7 +33,12 @@ public class MainApplication {
         listFilesForFolder(folder, pdfPathList);
         List<Map<String, String>> detailsList = new ArrayList<>();
         List<String> finalKeywords = keywords;
+        deleteFile(fileListPath);
+        deleteFile(errorFiles);
+        Map<String, String> headers = getHeaders(finalKeywords);
+        dataMapToCsv(headers);
         pdfPathList.forEach(pdfPath -> {
+            System.out.println(pdfPath);
             try (PDDocument document = PDDocument.load(new File(pdfPath))) {
                 Map<String, String> detailsMap = new HashMap<>();
                 detailsMap.put("File Path", pdfPath);
@@ -51,12 +55,34 @@ public class MainApplication {
                         finalKeywords.forEach(keyword -> detailsMap.put(keyword, String.valueOf(keywordExists(pdfFileInText, keyword))));
                     }
                 }
+                dataMapToCsv(detailsMap);
                 detailsList.add(detailsMap);
             } catch (IOException e) {
-                e.printStackTrace();
+                writeTxtFile(pdfPath);
             }
         });
         outputCsv(detailsList);
+    }
+
+    private static Map<String, String> getHeaders(List<String> finalKeywords) {
+        Map<String, String> headers = new HashMap<>();
+        headers.put("File Path", "File Path");
+        headers.put("File Name", "File Name");
+        headers.put("No. of Pages", "No. of Pages");
+        finalKeywords.forEach(keyword -> headers.put(keyword, keyword));
+        return headers;
+    }
+
+    private static void dataMapToCsv(Map<String, String> dataMap) {
+        try (FileWriter writer = new FileWriter(String.valueOf(fileListPath), true)) {
+            for (Map.Entry<String, String> string2 : dataMap.entrySet()) {
+                writer.write(string2.getValue());
+                writer.write(",");
+            }
+            writer.write("\r\n");
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     private static boolean keywordExists(String pdfFileInText, String keyword) {
@@ -64,7 +90,7 @@ public class MainApplication {
     }
 
     private static void listFilesForFolder(final File folder, List<String> pdfPathList) {
-        for (final File fileEntry : folder.listFiles()) {
+        for (final File fileEntry : Objects.requireNonNull(folder.listFiles())) {
             if (fileEntry.isDirectory()) {
                 listFilesForFolder(fileEntry, pdfPathList);
             } else {
@@ -80,6 +106,7 @@ public class MainApplication {
     private static void outputCsv(List<Map<String, String>> detailsList) {
         List<String> headers = detailsList.stream().flatMap(map -> map.keySet().stream()).distinct().collect(Collectors.toList());
         String path = outputCsvName;
+        deleteFile(outputCsvName);
         try (FileWriter writer = new FileWriter(path, false)) {
             for (String string : headers) {
                 writer.write(string);
@@ -96,6 +123,22 @@ public class MainApplication {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    private static void deleteFile(String path) {
+        File csvFile = new File(path);
+        if (csvFile.exists()) {
+            csvFile.delete();
+        }
+    }
+
+    private static void writeTxtFile(String desc) {
+        try (FileWriter writer = new FileWriter(errorFiles, true)) {
+            writer.write(desc);
+            writer.write("\r\n");
+        } catch (IOException ioException) {
+            ioException.printStackTrace();
         }
     }
 }
