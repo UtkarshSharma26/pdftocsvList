@@ -39,7 +39,9 @@ public class MainApplication {
         dataMapToCsv(headers);
         pdfPathList.forEach(pdfPath -> {
             System.out.println(pdfPath);
-            try (PDDocument document = PDDocument.load(new File(pdfPath))) {
+            PDDocument document = null;
+            try {
+                document = PDDocument.load(new File(pdfPath));
                 Map<String, String> detailsMap = new HashMap<>();
                 detailsMap.put("File Path", pdfPath);
                 detailsMap.put("File Name", pdfPath.substring(pdfPath.lastIndexOf('/') + 1));
@@ -57,6 +59,7 @@ public class MainApplication {
                 }
                 dataMapToCsv(detailsMap);
                 detailsList.add(detailsMap);
+                document.close();
             } catch (IOException e) {
                 writeTxtFile(pdfPath);
             }
